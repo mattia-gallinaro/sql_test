@@ -1,0 +1,365 @@
+/*Mattia Gallinaro
+ * 5F
+ * 7/12/2022*/
+use sandwiches;
+
+/*Quesito 19
+ *reset_count serve per indicare il numero di reset fatti che viene aggiornato
+ * ogni volta che viene effettuato un reset dall'utente
+ * */
+
+alter table `user` add column reset_count int default 0;
+
+
+/*Quesito 20
+ * offer_count serve per contare quante volte un prodotto viene inserito 
+ * in un offerta e viene aumentato ogni volta di 1, nel caso in cui il prodotto venga inserito nell'offerta
+ */
+
+alter table product add column offer_count int default 0;
+
+
+/*Quesito 1
+ * mostra il o i panino/i piú venduto/i
+ * */
+
+select panino, totale
+from(
+	select p2.name as panino, count(po.product) as totale
+	from product p2 
+	inner join product_order po on po.product = p2.id
+	group by p2.name
+)b
+where totale = ( select MAX(totale) from(
+	select count(po.product) as totale
+	from product p2 
+	inner join product_order po on po.product = p2.id
+	group by p2.name
+	)v	
+);
+
+/*Quesito 2
+ * Serve per contare il numero degli ordini validi di ogni utente
+ * e dopo averli contati, trova quello che ne ha il numero maggiore
+ * e lo mostra nella view
+ * status 3 corrisponde ad annullato
+ */
+
+select utente, tot_ord
+from (
+	select group_concat(u.name, u.surname separator ',')as utente,  count(o.id)as tot_ord
+	from `order` o 
+	inner join `user` u on u.id = o.`user` 
+	where o.status != 3
+	group by o.`user`
+)v
+where tot_ord = ( select max(tot_ord) from (
+	select count(o.id)as tot_ord
+	from `order` o 
+	inner join `user` u on u.id = o.`user` 
+	where o.status != 3
+	group by o.`user`
+)b		
+);
+
+/*Quesito 3
+ * Mostra gli ingredienti del primo panino nella lista
+ * */
+
+select i.name  
+from product p
+inner join product_ingredient pi2 on pi2.product = p.id 
+inner join ingredient i on i.id = pi2.ingredient 
+where p.id =1;
+
+
+
+/*Quesito 4
+ * Mostra il panino piú ordinato fra tutte le classi 
+ * */
+select classe, panino, max(totale_ord)
+from(
+	select c.id as classe , p.id as panino ,count(po.product) as totale_ord
+	from `order` o 
+	inner join product_order po on po.`order` = o.id 
+	inner join product p on p.id = po.product 
+	inner join `user` u on u.id = o.`user` 
+	inner join user_class uc on uc.`user` = u.id 
+	inner join class c on c.id = uc.class 
+	group by c.id, p.id
+)v
+where totale_ord = ( select max(totale_ord)
+from (
+	select count(po.product) as totale_ord
+	from `order` o 
+	inner join product_order po on po.`order` = o.id 
+	inner join product p on p.id = po.product 
+	inner join `user` u on u.id = o.`user` 
+	inner join user_class uc on uc.`user` = u.id 
+	inner join class c on c.id = uc.class 
+	group by c.id, p.id
+)b
+)
+;
+
+
+
+
+
+/*Quesito 5
+ * Controllo il numero di prodotti inserit con il count, ordinate in una settimana
+ * moltiplico il prezzo dei panini per esso e lo riporto a schermo
+ * */
+
+select o.created , p.price * count(po.product)
+from `order` o 
+inner join product_order po on po.`order` = o.id 
+inner join product p on p.id = po.product 
+where o.created >= NOW() - interval 7 day
+group by o.created >= Now() - interval 1 day;
+
+/*Quesito 6
+ * Riporta l'incasso medio giornaliero di una settimana 
+ * */
+
+select avg(tot_prod) as 'Incasso medio giornaliero'
+from(
+	select p.price * count(po.product) as tot_prod
+	from `order` o 
+	inner join product_order po on po.`order` = o.id 
+	inner join product p on p.id = po.product 
+	where o.created >= NOW() - interval 7 day
+	group by o.created
+)v;
+
+/*Quesito 7
+ * Riordino in modo decrescente in base alla data per cercare l'ultimo ordine effettuato
+ * */
+select *
+from `order` o 
+order by o.created  desc
+limit 1;
+
+
+/*Quesito 8
+ * Prima controllo l'ultimo ordine effettuato,
+ * Prendo l'id dell'ordine, cerco i prodotti e poi gli allergeni,
+ * li mostro una sola volta a schermo
+ */
+
+
+select distinct a.name as 'Allergene'
+from(
+	select o.id as ordine
+	from `order` o 
+	order by o.created  desc
+	limit 1
+)v
+inner join product_order po ON po.`order` = ordine
+inner join product p on p.id = po.product 
+inner join product_allergen pa on pa.product = p.id 
+inner join allergen a on a.id = pa.allergen;
+
+
+/*Quesito 9
+ * Trovo l'id dell'ultimo ordine effettuato,
+ * cerco i prodotti su product_order,
+ * poi gli ingredienti e li mostro una sola volta
+ * */
+select i.name
+from(
+	select o.id as ordine
+	from `order` o 
+	order by o.created  desc
+	limit 1
+)v
+inner join product_order po ON po.`order` = ordine
+inner join product p on p.id = po.product 
+inner join product_ingredient pi2 on pi2.product = p.id
+inner join ingredient i on i.id = pi2.ingredient;
+
+
+
+/*Quesito 10
+ * serve per cercare il totale di panini ordinati dagli studenti di nome Matteo
+ * in questo caso vengono contati in comune per contare tutti i prodotti ordinati dagli studenti di nome Matteo
+ * per suddivedere il conto basta usare il comando group by in base all'ordine da cui dopo si puó ricavare il nome
+ * */
+
+select count(po.product)
+from `order` o 
+inner join `user` u on u.id = o.`user` 
+inner join product_order po on po.`order` = o.id 
+where u.name = 'Matteo';
+
+
+/*Quesito 11
+ * Elenco totale dei prodotti ordinati dell'utente Mattia Gallo
+ * */
+
+select p.name , count(po.product) 
+from `order` o 
+inner join product_order po ON po.`order` = o.id 
+inner join product p on p.id = po.product 
+inner join `user` u on u.id = o.`user` 
+where u.name = 'Mattia' and u.surname = 'Gallo'
+group by po.product;
+
+/*Quesito 12
+ * prodotto piú presente nell'elenco dei preferiti
+ * */
+
+select nome_prod, tot_fav_prod
+from(
+	select p.name as nome_prod ,count(f.product) as tot_fav_prod
+	from favourite f 
+	inner join product p on p.id = f.product 
+	group by f.product 
+)v
+where tot_fav_prod = ( 
+	select max(tot_fav_prod) from
+	(
+	select count(f.product) as tot_fav_prod
+	from favourite f 
+	inner join product p on p.id = f.product 
+	group by f.product)b
+);
+
+
+/*Quesito 13
+ * Per trovare gli ordini che hanno il maggior numero di kcal totali
+ * */
+
+select ordine, tot_kcal
+from(
+	select o.id as ordine,sum(nv.kcal * po.product) as tot_kcal
+	from `order` o 
+	inner join product_order po on po.`order` = o.id 
+	inner join product p on p.id = po.product 
+	inner join nutritional_value nv on nv.id = p.nutritional_value 
+	group by o.id
+)v
+where tot_kcal = ( select max(tot_kcal) 
+from(
+	select o.id as ordine,sum(nv.kcal * po.product) as tot_kcal
+	from `order` o 
+	inner join product_order po on po.`order` = o.id 
+	inner join product p on p.id = po.product 
+	inner join nutritional_value nv on nv.id = p.nutritional_value 
+	group by o.id
+)b
+);
+
+/*Quesito 14
+ * Ordine piú calorico della classe 5 F
+ * */
+
+select ordine, tot_kcal
+from(
+	select o.id as ordine,sum(nv.kcal * po.product) as tot_kcal
+	from `order` o 
+	inner join product_order po on po.`order` = o.id 
+	inner join product p on p.id = po.product 
+	inner join nutritional_value nv on nv.id = p.nutritional_value 
+	inner join `user` u on u.id = o.`user`
+	inner join user_class uc on uc.`user` = u.id
+	inner join class c on c.id = uc.class 
+	where c.`year` = 5 and c.`section` = 'F'
+	group by o.id
+)v
+where tot_kcal = ( select max(tot_kcal) 
+from(
+	select o.id as ordine,sum(nv.kcal * po.product) as tot_kcal
+	from `order` o 
+	inner join product_order po on po.`order` = o.id 
+	inner join product p on p.id = po.product 
+	inner join nutritional_value nv on nv.id = p.nutritional_value 
+	inner join `user` u on u.id = o.`user`
+	inner join user_class uc on uc.`user` = u.id
+	inner join class c on c.id = uc.class 
+	where c.`year` = 5 and c.`section` = 'F'
+	group by o.id
+)b
+);
+
+/*Quesito 15
+ * Ordine piú calorico dello studente Mattia Gallo
+ * */
+
+select ordine, tot_kcal
+from(
+	select o.id as ordine,sum(nv.kcal * po.product) as tot_kcal
+	from `order` o 
+	inner join product_order po on po.`order` = o.id 
+	inner join product p on p.id = po.product 
+	inner join nutritional_value nv on nv.id = p.nutritional_value 
+	inner join `user` u on u.id = o.`user`
+	where u.name = 'Mattia' and u.surname = 'Gallo'
+	group by o.id
+)v
+where tot_kcal = ( select max(tot_kcal) 
+from(
+	select o.id as ordine,sum(nv.kcal * po.product) as tot_kcal
+	from `order` o 
+	inner join product_order po on po.`order` = o.id 
+	inner join product p on p.id = po.product 
+	inner join nutritional_value nv on nv.id = p.nutritional_value 
+	inner join `user` u on u.id = o.`user` 
+	where u.name = 'Mattia' and u.surname = 'Gallo'
+	group by o.id
+)b
+);
+
+
+/*Quesito 16
+ * Punto di consegna scelto piú frequentemente
+ */
+
+select punto, tot_rit
+from(
+	select o.pickup as punto ,count(o.pickup) as tot_rit
+	from `order` o 
+	group by o.pickup
+)v
+where tot_rit = (select max(tot_rit) from 
+	(
+	select count(o.pickup) as tot_rit
+	from `order` o 
+	group by o.pickup
+	)b
+);
+
+/*Quesito 17
+ * Punto di consegna con maggiore incasso
+ * non conto gli ordini annullati siccome non sono stati ritirati e quindi
+ * non sono stati pagati
+ */
+
+select punto_ritiro, tot_rit
+from(
+	select o.pickup as punto_ritiro, p.price * count(po.product) as tot_rit
+	from `order` o 
+	inner join product_order po on po.`order` = o.id 
+	inner join product p on p.id = po.product
+	group by o.pickup
+)v
+where tot_rit = (select max(tot_rit) from 
+	(
+	select p.price * count(po.product) as tot_rit
+	from `order` o 
+	inner join product_order po on po.`order` = o.id 
+	inner join product p on p.id = po.product
+	group by o.pickup
+	)b
+);
+
+/*Quesito 18
+ * Mostra gli incassi mensili di ogni pickup zone
+ * */
+
+select o.pickup as 'punto di ritiro',p.price * count(po.product) as 'Totale mensile'
+from `order` o 
+inner join product_order po on po.`order` = o.id 
+inner join product p on p.id = po.product
+where o.created >= Now() - interval 1 month
+group by o.pickup;
